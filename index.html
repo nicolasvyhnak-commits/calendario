@@ -155,6 +155,10 @@ input[type=time]{width:auto;flex:1;min-width:0}
 .primary:disabled{opacity:.6}
 .foot{margin:8px 0 0;font-size:.8125rem;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .link{background:none;border:0;padding:6px 0;color:var(--muted);text-decoration:underline;font-size:.8125rem;min-height:36px}
+.dot.sq{border-radius:2px}
+.pill{font-size:.75rem;font-weight:600;line-height:1.4;padding:0 8px;border-radius:999px;color:var(--accent);border:1px solid var(--accent)}
+.toggle{display:flex;align-items:center;gap:10px;min-height:44px;font-size:.9375rem}
+.toggle input{width:22px;height:22px;margin:0;accent-color:var(--accent)}
 @media (prefers-reduced-motion:no-preference){
   .cell,.check i{transition:background-color .15s}
 }
@@ -201,6 +205,7 @@ input[type=time]{width:auto;flex:1;min-width:0}
     <form id="form" class="add" autocomplete="off">
       <label class="sr" for="texto">Nueva nota</label>
       <input id="texto" type="text" placeholder="Anotar algo para este día" maxlength="200" required>
+      <label class="toggle" for="esFeli"><input id="esFeli" type="checkbox"> Es de Feli</label>
       <div class="row">
         <label class="sr" for="hora">Hora (opcional)</label>
         <input id="hora" type="time">
@@ -312,7 +317,7 @@ input[type=time]{width:auto;flex:1;min-width:0}
         c.appendChild(el("span","num",String(d)));
         var dots = el("span","dots");
         list.slice(0,3).forEach(function(n){
-          var dot = el("span","dot"); dot.style.background = colorOf(n.autor); dots.appendChild(dot);
+          var dot = el("span","dot" + (n.para === "feli" ? " sq" : "")); dot.style.background = colorOf(n.autor); dots.appendChild(dot);
         });
         if (list.length > 3) dots.appendChild(el("span","more","+"));
         c.appendChild(dots);
@@ -337,6 +342,12 @@ input[type=time]{width:auto;flex:1;min-width:0}
       s.appendChild(dot); s.appendChild(document.createTextNode(nameOf(nm)));
       box.appendChild(s);
     });
+    if (notas.some(function(n){ return n.para === "feli"; })){
+      var f = el("span");
+      var sq = el("span","dot sq");
+      f.appendChild(sq); f.appendChild(document.createTextNode("Feli"));
+      box.appendChild(f);
+    }
   }
 
   function renderDay(){
@@ -361,6 +372,7 @@ input[type=time]{width:auto;flex:1;min-width:0}
       var body = el("div","body");
       body.appendChild(el("div","txt",n.texto || ""));
       var meta = el("div","meta");
+      if (n.para === "feli") meta.appendChild(el("span","pill","Feli"));
       if (n.hora) meta.appendChild(el("span","t",n.hora));
       if (n.autor){
         var dot = el("span","dot"); dot.style.background = colorOf(n.autor);
@@ -470,13 +482,14 @@ input[type=time]{width:auto;flex:1;min-width:0}
     btn.disabled = true; aviso("");
     busy++;
     try {
-      var r = await rpc("cal_agregar", {
-        p_clave: clave, p_fecha: sel, p_texto: texto, p_hora: $("hora").value || "", p_autor: yo
+      var r = await rpc("cal_agregar_para", {
+        p_clave: clave, p_fecha: sel, p_texto: texto, p_hora: $("hora").value || "", p_autor: yo,
+        p_para: $("esFeli").checked ? "feli" : ""
       });
       if (!r || !r.nota) throw new Error(r && r.error ? r.error : "rechazado");
       notas.push(r.nota);
       lsSet("cal_notas", JSON.stringify(notas));
-      $("texto").value = ""; $("hora").value = "";
+      $("texto").value = ""; $("hora").value = ""; $("esFeli").checked = false;
       renderAll();
       $("texto").focus();
     } catch(err){
