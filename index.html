@@ -159,6 +159,32 @@ input[type=time]{width:auto;flex:1;min-width:0}
 .pill{font-size:.75rem;font-weight:600;line-height:1.4;padding:0 8px;border-radius:999px;color:var(--accent);border:1px solid var(--accent)}
 .toggle{display:flex;align-items:center;gap:10px;min-height:44px;font-size:.9375rem}
 .toggle input{width:22px;height:22px;margin:0;accent-color:var(--accent)}
+.tabs{display:flex;gap:4px;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.tab{flex:1;min-height:44px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-weight:600}
+.tab[aria-selected="true"]{background:var(--accent);color:var(--on-accent)}
+.vista{display:flex;flex-direction:column;gap:16px;min-width:0}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chips .chip{min-height:40px}
+.chip.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip.addsec{align-self:flex-start}
+.lhead{display:flex;align-items:center;gap:4px}
+.lhead h3{flex:1;min-width:0;margin:0;font-family:var(--display);font-weight:700;font-size:1.4rem;line-height:1.15;overflow-wrap:anywhere;text-wrap:balance}
+.lhead .ren,.shead .ren{flex:1;min-width:0}
+.ibtn{width:44px;height:44px;flex:none;display:grid;place-items:center;background:transparent;border:0;border-radius:10px}
+.ibtn svg{width:20px;height:20px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:4px 12px 12px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.shead{display:flex;align-items:center;gap:4px;min-height:48px}
+.sname{flex:1;min-width:0;margin:0;font-family:var(--display);font-weight:600;font-size:1.0625rem;overflow-wrap:anywhere}
+.count{font-size:.8125rem;color:var(--muted);font-variant-numeric:tabular-nums;padding:0 4px}
+.items{list-style:none;margin:0;padding:0}
+.item{display:flex;align-items:center;gap:4px;border-top:1px solid var(--line)}
+.item.done .txt{text-decoration:line-through;color:var(--muted)}
+.additem,.ren{display:flex;gap:8px;align-items:center}
+.ren{flex-wrap:wrap}
+.additem{margin-top:8px}
+.additem input[type=text]{flex:1;min-width:0;width:auto}
+.ren input[type=text]{flex:1 1 140px;min-width:0;width:auto}
+.additem .primary,.ren .primary{margin-top:0;padding:0 16px}
 @media (prefers-reduced-motion:no-preference){
   .cell,.check i{transition:background-color .15s}
 }
@@ -180,6 +206,12 @@ input[type=time]{width:auto;flex:1;min-width:0}
 </div>
 
 <div id="main" class="app" hidden>
+  <div class="tabs" role="tablist" aria-label="Secciones de la app">
+    <button id="tabCal" class="tab" type="button" role="tab" aria-selected="true" aria-controls="vistaCal">Calendario</button>
+    <button id="tabListas" class="tab" type="button" role="tab" aria-selected="false" aria-controls="vistaListas">Listas</button>
+  </div>
+
+  <div id="vistaCal" class="vista" role="tabpanel" aria-labelledby="tabCal">
   <header class="top">
     <button id="prev" class="icon" type="button" aria-label="Mes anterior"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
     <h2 id="mes" aria-live="polite"></h2>
@@ -214,6 +246,14 @@ input[type=time]{width:auto;flex:1;min-width:0}
     </form>
     <p id="aviso" class="hint err" role="status" hidden></p>
   </section>
+
+  </div>
+
+  <div id="vistaListas" class="vista" role="tabpanel" aria-labelledby="tabListas" hidden>
+    <p id="offlineL" class="offline" role="status" hidden></p>
+    <p id="avisoL" class="hint err" role="status" hidden></p>
+    <div id="contListas" class="vista"></div>
+  </div>
 
   <p class="foot"><span id="quien"></span><button id="salir" class="link" type="button">Cambiar nombre o clave</button></p>
 </div>
@@ -398,9 +438,11 @@ input[type=time]{width:auto;flex:1;min-width:0}
     a.textContent = msg; a.hidden = false;
   }
   function offline(msg){
-    var o = $("offline");
-    if (!msg){ o.hidden = true; o.textContent = ""; return; }
-    o.textContent = msg; o.hidden = false;
+    ["offline", "offlineL"].forEach(function(id){
+      var o = $(id);
+      if (!msg){ o.hidden = true; o.textContent = ""; return; }
+      o.textContent = msg; o.hidden = false;
+    });
   }
 
   /* ---------- pantallas ---------- */
@@ -417,6 +459,7 @@ input[type=time]{width:auto;flex:1;min-width:0}
     $("main").hidden = false;
     $("quien").textContent = "Sos " + yo + ".";
     renderAll();
+    setVista(vista);
   }
 
   /* ---------- acciones ---------- */
@@ -516,6 +559,7 @@ input[type=time]{width:auto;flex:1;min-width:0}
         lsSet("cal_nombre", yo); lsSet("cal_clave", clave);
         notas = r.notas; lsSet("cal_notas", JSON.stringify(notas));
         showMain();
+        cargarListas();
       }
     } catch(err){
       m.textContent = "No hay conexión. Revisá internet y probá de nuevo."; m.hidden = false;
@@ -524,6 +568,7 @@ input[type=time]{width:auto;flex:1;min-width:0}
 
   $("salir").addEventListener("click", function(){
     clave = ""; lsDel("cal_clave"); lsDel("cal_notas"); notas = [];
+    lsDel("cal_listas"); L = {listas: [], secciones: [], items: []}; lastL = "";
     showLogin("");
   });
   $("prev").addEventListener("click", function(){
@@ -536,11 +581,322 @@ input[type=time]{width:auto;flex:1;min-width:0}
     view = {y: now.getFullYear(), m: now.getMonth()}; sel = hoyISO; armed = null; renderAll();
   });
 
+  /* ---------- listas ---------- */
+  var L = {listas: [], secciones: [], items: []};
+  try {
+    var cacheL = JSON.parse(lsGet("cal_listas") || "null");
+    if (cacheL && Array.isArray(cacheL.listas) && Array.isArray(cacheL.secciones) && Array.isArray(cacheL.items)) L = cacheL;
+  } catch(e){}
+  var vista = lsGet("cal_vista") === "listas" ? "listas" : "cal";
+  var listaSel = lsGet("cal_lista_sel") || "";
+  var editando = null;        // {tipo: "lista" | "seccion" | "nueva-lista" | "nueva-seccion", id}
+  var borradores = {};        // texto a medio escribir ("ren" o "s:<id de seccion>")
+  var focoPedido = null;      // seccion cuyo campo hay que enfocar al redibujar
+  var focoRenPedido = false;
+  var pendiente = false;      // hay datos nuevos esperando a que se cierre el teclado
+  var lastL = "";
+  var escrituras = 0;
+  var armedL = null, armLTimer = null;
+
+  var ICONO_LAPIZ = '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>';
+  var ICONO_TILDE = '<i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>';
+
+  function avisoL(msg){
+    var a = $("avisoL");
+    if (!msg){ a.hidden = true; a.textContent = ""; return; }
+    a.textContent = msg; a.hidden = false;
+  }
+  function guardarListas(){ lsSet("cal_listas", JSON.stringify(L)); }
+  function listaActual(){
+    var l = L.listas.filter(function(x){ return x.id === listaSel; })[0];
+    if (!l && L.listas.length){ l = L.listas[0]; listaSel = l.id; }
+    return l || null;
+  }
+
+  function setVista(v){
+    vista = v; lsSet("cal_vista", v);
+    $("vistaCal").hidden = v !== "cal";
+    $("vistaListas").hidden = v !== "listas";
+    $("tabCal").setAttribute("aria-selected", v === "cal" ? "true" : "false");
+    $("tabListas").setAttribute("aria-selected", v === "listas" ? "true" : "false");
+    if (v === "listas") renderListas(true);
+  }
+
+  function formNombre(placeholder, etiqueta, onOk){
+    var f = el("form", "ren");
+    var lab = el("label", "sr", etiqueta); lab.setAttribute("for", "renInput");
+    var inp = el("input"); inp.type = "text"; inp.id = "renInput"; inp.maxLength = 60; inp.required = true;
+    inp.placeholder = placeholder; inp.value = borradores.ren || ""; inp.dataset.ren = "1";
+    inp.setAttribute("autocomplete", "off");
+    inp.addEventListener("input", function(){ borradores.ren = inp.value; });
+    var ok = el("button", "primary", "Guardar"); ok.type = "submit";
+    var no = el("button", "link", "Cancelar"); no.type = "button";
+    no.addEventListener("click", function(){ editando = null; delete borradores.ren; renderListas(true); });
+    f.appendChild(lab); f.appendChild(inp); f.appendChild(ok); f.appendChild(no);
+    f.addEventListener("submit", function(e){ e.preventDefault(); var t = inp.value.trim(); if (t) onOk(t); });
+    return f;
+  }
+  function btnRenombrar(etiqueta, fn){
+    var b = el("button", "ibtn"); b.type = "button";
+    b.setAttribute("aria-label", etiqueta); b.innerHTML = ICONO_LAPIZ;
+    b.addEventListener("click", fn);
+    return b;
+  }
+  function btnBorrar(tipo, fila){
+    var armado = armedL === fila.id;
+    var b = el("button", "del" + (armado ? " armed" : ""), armado ? (tipo === "item" ? "¿Borrar?" : "¿Borrar todo?") : "Borrar");
+    b.type = "button";
+    b.addEventListener("click", function(){ borrar(tipo, fila); });
+    return b;
+  }
+  function empezarRenombre(tipo, fila, actual){
+    editando = {tipo: tipo, id: fila.id}; borradores = {ren: actual}; focoRenPedido = true;
+    renderListas(true);
+  }
+
+  function renderListas(forzar){
+    if (vista !== "listas") return;
+    var ae = document.activeElement;
+    var enCampo = !!(ae && ae.tagName === "INPUT" && ae.closest("#vistaListas"));
+    if (enCampo && !forzar){ pendiente = true; return; }   // no pisar lo que se esta escribiendo
+    pendiente = false;
+    var focoSec = focoPedido, focoRen = focoRenPedido;
+    focoPedido = null; focoRenPedido = false;
+    if (enCampo){
+      if (!focoSec && ae.dataset.sid) focoSec = ae.dataset.sid;
+      if (!focoSec && ae.dataset.ren) focoRen = true;
+    }
+
+    var root = $("contListas");
+    root.textContent = "";
+    var cur = listaActual();
+
+    var chips = el("div", "chips");
+    L.listas.forEach(function(l){
+      var on = !!cur && l.id === cur.id;
+      var b = el("button", "chip" + (on ? " on" : ""), l.nombre);
+      b.type = "button"; b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.addEventListener("click", function(){
+        listaSel = l.id; lsSet("cal_lista_sel", l.id);
+        editando = null; borradores = {}; armedL = null; avisoL("");
+        renderListas(true);
+      });
+      chips.appendChild(b);
+    });
+    var nl = el("button", "chip", "+ Lista"); nl.type = "button";
+    nl.addEventListener("click", function(){
+      editando = {tipo: "nueva-lista"}; borradores = {ren: ""}; focoRenPedido = true; renderListas(true);
+    });
+    chips.appendChild(nl);
+    root.appendChild(chips);
+
+    if (editando && editando.tipo === "nueva-lista"){
+      root.appendChild(formNombre("Nombre de la lista", "Nombre de la nueva lista", crearLista));
+    }
+    if (!cur){
+      root.appendChild(el("p", "empty", "Todavía no hay listas. Tocá + Lista para crear la primera."));
+    } else {
+      var head = el("div", "lhead");
+      if (editando && editando.tipo === "lista" && editando.id === cur.id){
+        head.appendChild(formNombre("Nombre de la lista", "Nuevo nombre de la lista", function(t){ renombrar("lista", cur, t); }));
+      } else {
+        head.appendChild(el("h3", null, cur.nombre));
+        head.appendChild(btnRenombrar("Renombrar la lista " + cur.nombre, function(){ empezarRenombre("lista", cur, cur.nombre); }));
+        head.appendChild(btnBorrar("lista", cur));
+      }
+      root.appendChild(head);
+
+      var secs = L.secciones.filter(function(x){ return x.lista_id === cur.id; });
+      if (!secs.length && !(editando && editando.tipo === "nueva-seccion")){
+        root.appendChild(el("p", "empty", "Esta lista no tiene secciones. Tocá + Sección para agregar una."));
+      }
+      secs.forEach(function(sec){
+        var its = L.items.filter(function(i){ return i.seccion_id === sec.id; });
+        var hechos = its.filter(function(i){ return i.hecho; }).length;
+        var box = el("section", "sec");
+        var sh = el("div", "shead");
+        if (editando && editando.tipo === "seccion" && editando.id === sec.id){
+          sh.appendChild(formNombre("Nombre de la sección", "Nuevo nombre de la sección", function(t){ renombrar("seccion", sec, t); }));
+        } else {
+          sh.appendChild(el("h4", "sname", sec.nombre));
+          if (its.length) sh.appendChild(el("span", "count", hechos + "/" + its.length));
+          sh.appendChild(btnRenombrar("Renombrar la sección " + sec.nombre, function(){ empezarRenombre("seccion", sec, sec.nombre); }));
+          sh.appendChild(btnBorrar("seccion", sec));
+        }
+        box.appendChild(sh);
+
+        var ul = el("ul", "items");
+        its.forEach(function(it){
+          var li = el("li", "item" + (it.hecho ? " done" : ""));
+          var chk = el("button", "check"); chk.type = "button";
+          chk.setAttribute("role", "checkbox");
+          chk.setAttribute("aria-checked", it.hecho ? "true" : "false");
+          chk.setAttribute("aria-label", "Marcar " + it.texto);
+          chk.innerHTML = ICONO_TILDE;
+          chk.addEventListener("click", function(){ tildar(it); });
+          li.appendChild(chk);
+          var body = el("div", "body"); body.appendChild(el("div", "txt", it.texto));
+          li.appendChild(body);
+          li.appendChild(btnBorrar("item", it));
+          ul.appendChild(li);
+        });
+        box.appendChild(ul);
+
+        var af = el("form", "additem");
+        var inp = el("input"); inp.type = "text"; inp.maxLength = 120; inp.dataset.sid = sec.id;
+        inp.placeholder = "Agregar a " + sec.nombre;
+        inp.setAttribute("aria-label", "Agregar a " + sec.nombre);
+        inp.setAttribute("autocomplete", "off");
+        inp.value = borradores["s:" + sec.id] || "";
+        inp.addEventListener("input", function(){ borradores["s:" + sec.id] = inp.value; });
+        var ab = el("button", "primary", "Agregar"); ab.type = "submit";
+        af.appendChild(inp); af.appendChild(ab);
+        af.addEventListener("submit", function(e){ e.preventDefault(); var t = inp.value.trim(); if (t) crearItem(sec, t); });
+        box.appendChild(af);
+        root.appendChild(box);
+      });
+
+      if (editando && editando.tipo === "nueva-seccion" && editando.id === cur.id){
+        root.appendChild(formNombre("Nombre de la sección", "Nombre de la nueva sección", crearSeccion));
+      } else {
+        var ns = el("button", "chip addsec", "+ Sección"); ns.type = "button";
+        ns.addEventListener("click", function(){
+          editando = {tipo: "nueva-seccion", id: cur.id}; borradores = {ren: ""}; focoRenPedido = true; renderListas(true);
+        });
+        root.appendChild(ns);
+      }
+    }
+
+    if (focoSec){
+      var campos = root.querySelectorAll("input[data-sid]");
+      for (var k = 0; k < campos.length; k++){
+        if (campos[k].dataset.sid === focoSec){
+          campos[k].focus();
+          try { campos[k].setSelectionRange(campos[k].value.length, campos[k].value.length); } catch(e){}
+          break;
+        }
+      }
+    } else if (focoRen){
+      var ri = $("renInput");
+      if (ri){ ri.focus(); try { ri.setSelectionRange(ri.value.length, ri.value.length); } catch(e){} }
+    }
+  }
+
+  async function llamar(fn, args){
+    busy++; escrituras++;
+    try {
+      var r = await rpc(fn, args);
+      if (!r || r.error) throw new Error(r && r.error ? String(r.error) : "rechazado");
+      return r;
+    } finally { busy--; escrituras++; }
+  }
+
+  async function crearLista(t){
+    avisoL("");
+    try {
+      var r = await llamar("lis_crear", {p_clave: clave, p_tipo: "lista", p_padre: null, p_texto: t});
+      L.listas.push(r.fila); listaSel = r.fila.id; lsSet("cal_lista_sel", listaSel);
+      editando = null; borradores = {}; guardarListas(); renderListas(true);
+    } catch(e){ avisoL("No se pudo crear la lista. Revisá la conexión y probá de nuevo."); }
+  }
+  async function crearSeccion(t){
+    var cur = listaActual(); if (!cur) return;
+    avisoL("");
+    try {
+      var r = await llamar("lis_crear", {p_clave: clave, p_tipo: "seccion", p_padre: cur.id, p_texto: t});
+      L.secciones.push(r.fila);
+      editando = null; delete borradores.ren; guardarListas(); renderListas(true);
+    } catch(e){ avisoL("No se pudo crear la sección. Revisá la conexión y probá de nuevo."); }
+  }
+  async function crearItem(sec, t){
+    avisoL("");
+    try {
+      var r = await llamar("lis_crear", {p_clave: clave, p_tipo: "item", p_padre: sec.id, p_texto: t});
+      L.items.push(r.fila);
+      delete borradores["s:" + sec.id]; focoPedido = sec.id; guardarListas(); renderListas(true);
+    } catch(e){ avisoL("No se pudo agregar. Revisá la conexión y probá de nuevo."); }
+  }
+  async function renombrar(tipo, fila, t){
+    var campo = tipo === "item" ? "texto" : "nombre";
+    var antes = fila[campo];
+    avisoL("");
+    fila[campo] = t; editando = null; delete borradores.ren; renderListas(true);
+    try {
+      await llamar("lis_renombrar", {p_clave: clave, p_tipo: tipo, p_id: fila.id, p_texto: t});
+      guardarListas();
+    } catch(e){
+      fila[campo] = antes; renderListas(true); avisoL("No se pudo cambiar el nombre. Probá de nuevo.");
+    }
+  }
+  async function tildar(it){
+    var antes = it.hecho;
+    avisoL("");
+    it.hecho = !antes; renderListas(true);
+    try {
+      await llamar("lis_tildar", {p_clave: clave, p_id: it.id, p_hecho: it.hecho});
+      guardarListas();
+    } catch(e){
+      it.hecho = antes; renderListas(true); avisoL("No se pudo actualizar. Probá de nuevo.");
+    }
+  }
+  async function borrar(tipo, fila){
+    if (armedL !== fila.id){
+      armedL = fila.id;
+      clearTimeout(armLTimer);
+      armLTimer = setTimeout(function(){ armedL = null; renderListas(true); }, 3000);
+      renderListas(true);
+      return;
+    }
+    armedL = null; clearTimeout(armLTimer); avisoL("");
+    var copia = JSON.stringify(L);
+    if (tipo === "lista"){
+      var ids = L.secciones.filter(function(x){ return x.lista_id === fila.id; }).map(function(x){ return x.id; });
+      L.listas = L.listas.filter(function(x){ return x.id !== fila.id; });
+      L.secciones = L.secciones.filter(function(x){ return x.lista_id !== fila.id; });
+      L.items = L.items.filter(function(x){ return ids.indexOf(x.seccion_id) < 0; });
+    } else if (tipo === "seccion"){
+      L.secciones = L.secciones.filter(function(x){ return x.id !== fila.id; });
+      L.items = L.items.filter(function(x){ return x.seccion_id !== fila.id; });
+    } else {
+      L.items = L.items.filter(function(x){ return x.id !== fila.id; });
+    }
+    renderListas(true);
+    try {
+      await llamar("lis_borrar", {p_clave: clave, p_tipo: tipo, p_id: fila.id});
+      guardarListas();
+    } catch(e){
+      L = JSON.parse(copia); renderListas(true); avisoL("No se pudo borrar. Probá de nuevo.");
+    }
+  }
+
+  async function cargarListas(){
+    if (!clave) return;
+    var v0 = escrituras;
+    var r;
+    try { r = await rpc("lis_todo", {p_clave: clave}); } catch(e){ return; }
+    if (!r || r.error || !Array.isArray(r.listas) || !Array.isArray(r.secciones) || !Array.isArray(r.items)) return;
+    if (busy || escrituras !== v0) return;     // hubo cambios propios mientras tanto: esta respuesta ya quedó vieja
+    var txt = JSON.stringify(r);
+    if (txt === lastL) return;
+    lastL = txt;
+    L = {listas: r.listas, secciones: r.secciones, items: r.items};
+    guardarListas();
+    renderListas();
+  }
+
+  $("tabCal").addEventListener("click", function(){ setVista("cal"); });
+  $("tabListas").addEventListener("click", function(){ setVista("listas"); });
+  $("vistaListas").addEventListener("focusout", function(){
+    setTimeout(function(){ if (pendiente) renderListas(); }, 200);
+  });
+
   /* ---------- arranque y actualizacion periodica ---------- */
-  if (yo && clave){ showMain(); cargar(); } else { showLogin(""); }
-  setInterval(function(){ if (document.visibilityState === "visible" && clave && !busy) cargar(); }, 20000);
+  if (yo && clave){ showMain(); cargar(); cargarListas(); } else { showLogin(""); }
+  setInterval(function(){
+    if (document.visibilityState === "visible" && clave && !busy){ cargar(); cargarListas(); }
+  }, 20000);
   document.addEventListener("visibilitychange", function(){
-    if (document.visibilityState === "visible" && clave && !busy) cargar();
+    if (document.visibilityState === "visible" && clave && !busy){ cargar(); cargarListas(); }
   });
 })();
 </script>
